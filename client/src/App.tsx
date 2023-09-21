@@ -20,6 +20,9 @@ const App: React.FC = () => {
   const [inGame, setInGame] = useState(false);
   const [showJoinGameInput, setShowJoinGameInput] = useState(false);
   const [inputGameID, setInputGameID] = useState('');
+  const [playerCards, setPlayerCards] = useState<string[]>([]);
+  const [hostPlayer, setHostPlayer] = useState('')
+
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
@@ -35,6 +38,9 @@ const App: React.FC = () => {
         
         if (data.type === 'playerJoined') {
           setPlayers(prevPlayers => [...prevPlayers, data.joinedPlayer]);
+        } else if (data.type === 'gameStarted') {
+          setPlayerCards(data.cards.map((card: any) => card.image));
+          console.log(data);
         }
       } catch (e) {
         console.error('Error parsing message:', e);
@@ -71,13 +77,21 @@ const App: React.FC = () => {
     try {
       await createOrEnsurePlayer();
 
-      const response = await axios.post(`${BASE_API_URL}/api/game/${gameIdToJoin}/join`, {
+      const response = await axios.post(`${BASE_API_URL}/api/games/${gameIdToJoin}/join`, {
         playerID, 
       });
 
-      const joinedGameID = response.data.gameID;  
+      const joinedGameID = response.data.gameId;  
+      const hostPlayer = response.data.hostPlayer;
+
       if (joinedGameID) {
         setGameID(joinedGameID);
+        setShowJoinGameInput(false);
+        setInGame(true);
+      }
+
+      if (hostPlayer) {
+        setHostPlayer(hostPlayer);
       }
     } catch (error) {
       console.error('Failed to join the existing game:', error);
@@ -94,6 +108,15 @@ const App: React.FC = () => {
       console.error('Failed to create or confirm player:', error);
     }
   };
+
+  const beginGame = async () => {
+    try {
+      const response = await axios.get(`${BASE_API_URL}/api/games/${gameID}/start`);
+      console.log('Game begun:', response.data);
+    } catch (error) {
+      console.error('Failed to start game:', error);
+    }
+  }
 
   const handleJoinGameClick = () => {
     setShowJoinGameInput(true);
@@ -137,17 +160,39 @@ const App: React.FC = () => {
         {inGame ? (
           <>
             <p>Game ID: {gameID}</p>
-            <p>Total Players: {players.length}</p>
+            {hostPlayer !== '' ? (
+              <>
+                <p> You have joined Player {hostPlayer}'s game!</p>
+              </>
+            ) : (
+              <>
+                <p>Total Players: {players.length}</p>
+                <ul>
+                  {players.map((p, index) => (
+                    <li key={index}>{p}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {/* <p>Total Players: {players.length}</p>
             <ul>
               {players.map((p, index) => (
                 <li key={index}>{p}</li>
               ))}
-            </ul>
+            </ul> */}
             <div>
-              <img src={BACK_CARD_URL} alt="Card back" />
-              <img src={BACK_CARD_URL} alt="Card back" />
+              {playerCards.length === 0 ? (
+                <>
+                  <img src={BACK_CARD_URL} alt="Card back" />
+                  <img src={BACK_CARD_URL} alt="Card back" />
+                </>
+              ) : (
+                playerCards.map((cardUrl, index) => (
+                  <img key={index} src={cardUrl} alt="Card" />
+                ))
+              )}
             </div>
-            <button disabled={players.length < 2}>Start Game</button>
+            <button disabled={players.length < 2} onClick={beginGame}>Begin Game</button>
           </>
         ) : showJoinGameInput ? (
           <div>

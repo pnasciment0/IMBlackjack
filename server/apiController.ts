@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import sqlite3 from 'sqlite3';
+import axios from 'axios';
 
 interface ExistenceCheckRow {
   gameExists: number;
@@ -8,8 +9,15 @@ interface ExistenceCheckRow {
 
 interface PlayerGameRow {
   game_id: number | null; //game_id and not gameId bc schema.sql defines it as game_id
-  hostPlayer: number | null; // the ID of the player who's turn it is (defaults to the player ID that created the game)
+  hostPlayer: number | null; // ID of the player who created the game
+  id: number | null; // User ID object
 }
+
+const initializeDeck = async () => {
+  // Call Deck of Cards API to get a new deck
+  const response = await axios.get('https://deckofcardsapi.com/api/deck/new/shuffle/');
+  return response.data.deck_id;  // Returns new shuffled deck ID
+};
 
 // =========== Player CRUD =============
 
@@ -85,7 +93,7 @@ export const getPlayer = (db: sqlite3.Database, req: Request, res: Response) => 
 // =========== Games CRUD =============
 
 export const createGame = (db: sqlite3.Database, req: Request, res: Response): Promise<any> => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const initialState = req.body.state || '';
     const hostPlayer = req.body.hostPlayerID || null; 
   
@@ -171,12 +179,52 @@ export const addPlayerToGame = (db: sqlite3.Database, req: Request, res: Respons
 
             const hostPlayer = row ? row.hostPlayer : null;
             resolve(hostPlayer);  // Resolve with hostPlayer ID
-            res.status(201).json({ message: 'Player added to game', hostPlayer });
+            res.status(201).json({ message: 'Player added to game', hostPlayer, gameId });
           });
         });
       });
     });
   });
+}
+
+export const startGame = (db: sqlite3.Database, req: Request, res: Response):  Promise<any> => {
+  return new Promise(async (resolve, reject) => {
+    const gameId = req.params.gameId;
+
+    // Initialize a new deck for the game
+    const deckId = await initializeDeck();
+
+    // Insert deck_id into the games table
+    db.run('UPDATE games SET deck_id = ? WHERE id = ?', [deckId, gameId], function(err) {
+      if (err) {
+        console.error('Error inserting into games:', err);
+        res.status(500).send('Internal Server Error');
+        return;
+      }
+    });
+
+     // Get user IDs associated with the game
+     let userIds: string[] = [];
+     db.all('SELECT id FROM players WHERE game_id = ?', [gameId], (err, rows: PlayerGameRow[]) => {
+       if (err) {
+         console.error('Error querying game_users:', err);
+         res.status(500).send('Internal Server Error');
+         return;
+       }
+       
+       userIds = rows.map((row: PlayerGameRow) => String(row.id));
+      //  // Send WebSocket message to active users about their hands
+      //  for (const userId of userIds) {
+      //    const ws = activeConnections.get(userId);
+      //    if (ws) {
+      //      ws.send(JSON.stringify({ game_id: gameId, hand: cards }));
+      //    }
+      //  }
+       resolve({deckId, userIds});
+       res.status(201).json({deckId, userIds });
+     });
+  });
+  
 }
 
 // =========== Actions CRUD =============

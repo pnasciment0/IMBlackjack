@@ -8,10 +8,12 @@ import {
   createGame,
   listPlayers,
   listAllGames,
-  addPlayerToGame
+  addPlayerToGame,
+  startGame
 } from './apiController';
 import http from 'http';
 import WebSocket from 'ws';
+import axios from 'axios';
 
 initializeDb()
   .then((db) => {
@@ -25,14 +27,23 @@ initializeDb()
     app.use(cors());
     app.use(bodyParser.json());
 
+    // list all players
     app.get('/api/players', (req, res) => listPlayers(db, req, res));
+
+    // create a new player
     app.post('/api/players/create', (req, res) => createPlayer(db, req, res));
+
+    // get player by ID
     app.get('/api/players/:id', (req, res) => getPlayer(db, req, res));
 
+    // list all games
     app.get('/api/games', (req, res) => listAllGames(db, req, res));
+
+    // create a game
     app.post('/api/games/create', (req, res) => createGame(db, req, res));
 
-    app.post('/api/game/:gameId/join', async (req, res) => {
+    // join a game
+    app.post('/api/games/:gameId/join', async (req, res) => {
       addPlayerToGame(db, req, res).then((response) => {
         const hostPlayer = response;
         const joinedPlayer = req.body.playerID;
@@ -44,6 +55,25 @@ initializeDb()
       }).catch((err) => {
         console.error('Error in addPlayerToGame:', err);
       });
+    });
+
+    // start a game
+    app.get('/api/games/:gameId/start', (req, res) => {
+      startGame(db, req, res).then(async (response) => {
+        const playerIds = response.userIds;
+        console.log(response);
+        for (const playerId of playerIds) {
+          if (activeConnections[playerId]) {
+            const ws = activeConnections[playerId];
+            const deckId = response.deckId;
+
+            const cardsRequest = await axios.get(`https://deckofcardsapi.com/api/deck/${deckId}/draw/?count=2`);
+            const cards = cardsRequest.data.cards;
+
+            ws.send(JSON.stringify({type: 'gameStarted', playerId, cards}))
+          }
+        }
+      })
     });
 
     const wss = new WebSocket.Server({ server });

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     state TEXT,
+    deck_id INTEGER,
     hostPlayer INTEGER,
     FOREIGN KEY (hostPlayer) REFERENCES players(id)
 );
