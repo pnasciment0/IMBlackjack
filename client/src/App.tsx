@@ -21,7 +21,9 @@ const App: React.FC = () => {
   const [showJoinGameInput, setShowJoinGameInput] = useState(false);
   const [inputGameID, setInputGameID] = useState('');
   const [playerCards, setPlayerCards] = useState<string[]>([]);
-  const [hostPlayer, setHostPlayer] = useState('')
+  const [hostPlayer, setHostPlayer] = useState('');
+  const [isMyTurn, setIsMyTurn] = useState(false);
+  const [hasGameBegun, setHasGameBegun] = useState(false);
 
 
   useEffect(() => {
@@ -40,7 +42,13 @@ const App: React.FC = () => {
           setPlayers(prevPlayers => [...prevPlayers, data.joinedPlayer]);
         } else if (data.type === 'gameStarted') {
           setPlayerCards(data.cards.map((card: any) => card.image));
-          console.log(data);
+          setHasGameBegun(true);
+        } else if (data.type === 'playerTurn') {
+          if (data.playerID === playerID) {
+            setIsMyTurn(true);
+          } else {
+            setIsMyTurn(false);
+          }
         }
       } catch (e) {
         console.error('Error parsing message:', e);
@@ -68,6 +76,7 @@ const App: React.FC = () => {
       setGameID(newGameID);
       setPlayers([playerID]);
       setInGame(true);
+      setHostPlayer(playerID);
     } catch (error) {
       console.error('Failed to create a new game:', error);
     }
@@ -113,6 +122,12 @@ const App: React.FC = () => {
     try {
       const response = await axios.get(`${BASE_API_URL}/api/games/${gameID}/start`);
       console.log('Game begun:', response.data);
+
+      if (hostPlayer === playerID) {
+        setIsMyTurn(true);
+      }
+
+      setHasGameBegun(true);
     } catch (error) {
       console.error('Failed to start game:', error);
     }
@@ -135,32 +150,10 @@ const App: React.FC = () => {
       <header className="App-header">
         <h1>Welcome to Blackjack!</h1>
         <p>Your Player ID: {playerID}</p>
-        <div>
-          {/* <label>
-            Or log in as:
-            <input 
-              type="text" 
-              value={playerID}
-              onChange={(e) => setPlayerID(e.target.value)}
-              placeholder="another user"
-            />
-          </label> */}
-        </div>
-        {/* <div>
-          <label>
-            Display Name: 
-            <input 
-              type="text" 
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Optional"
-            />
-          </label>
-        </div> */}
         {inGame ? (
           <>
             <p>Game ID: {gameID}</p>
-            {hostPlayer !== '' ? (
+            {hostPlayer !== '' && hostPlayer !== playerID ? (
               <>
                 <p> You have joined Player {hostPlayer}'s game!</p>
               </>
@@ -174,12 +167,6 @@ const App: React.FC = () => {
                 </ul>
               </>
             )}
-            {/* <p>Total Players: {players.length}</p>
-            <ul>
-              {players.map((p, index) => (
-                <li key={index}>{p}</li>
-              ))}
-            </ul> */}
             <div>
               {playerCards.length === 0 ? (
                 <>
@@ -192,7 +179,9 @@ const App: React.FC = () => {
                 ))
               )}
             </div>
-            <button disabled={players.length < 2} onClick={beginGame}>Begin Game</button>
+            {hostPlayer === playerID && (
+              <button disabled={players.length < 2 || hasGameBegun} onClick={beginGame}>Begin Game</button>
+            )}
           </>
         ) : showJoinGameInput ? (
           <div>
@@ -212,6 +201,22 @@ const App: React.FC = () => {
           <div className="buttons">
             <button onClick={startNewGame}>Start a New Game</button>
             <button onClick={handleJoinGameClick}>Join an Existing Game</button>
+          </div>
+        )}
+        {hasGameBegun && isMyTurn && (
+          <div>
+            It's your turn!
+          </div>
+        )}
+        {hasGameBegun && !isMyTurn && (
+          <>
+            It isn't your turn yet.
+          </>
+        )}
+        {hasGameBegun && (
+          <div>
+            <button disabled={!isMyTurn} onClick={() => {/* Handle Hit logic */}}>Hit</button>
+            <button disabled={!isMyTurn} onClick={() => {/* Handle Stand logic */}}>Stand</button>
           </div>
         )}
       </header>

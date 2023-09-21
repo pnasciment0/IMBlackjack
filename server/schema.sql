@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS games (
     state TEXT,
     deck_id INTEGER,
     hostPlayer INTEGER,
-    FOREIGN KEY (hostPlayer) REFERENCES players(id)
+    currentPlayer INTEGER,
+    FOREIGN KEY (hostPlayer) REFERENCES players(id),
+    FOREIGN KEY (currentPlayer) REFERENCES players(id)
 );
 
 CREATE TABLE IF NOT EXISTS player_games (
