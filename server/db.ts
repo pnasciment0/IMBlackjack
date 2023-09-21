@@ -25,7 +25,7 @@ export const initializeDb = (): Promise<sqlite3.Database> => {
         }
         
         // If 'players' table doesn't exist, proceed to read schema
-        fs.readFile('./database/schema.sql', 'utf8', (err, data) => {
+        fs.readFile('./schema.sql', 'utf8', (err, data) => {
           if (err) {
             console.error('Error reading schema file:', err);
             reject(err);

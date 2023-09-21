@@ -10,9 +10,7 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     state TEXT,
-    currentPlayer INTEGER,
     hostPlayer INTEGER,
-    FOREIGN KEY (currentPlayer) REFERENCES players(id)
     FOREIGN KEY (hostPlayer) REFERENCES players(id)
 );
 

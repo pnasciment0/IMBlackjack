@@ -5,6 +5,7 @@ import { join } from 'path';
 
 const BACK_CARD_URL = 'https://deckofcardsapi.com/static/img/back.png';
 const BASE_API_URL = "http://localhost:3001";
+const WS_URL = "ws://localhost:3001";
 
 const generatePlayerID = () => {
   // Implement your ID generation logic here.
@@ -15,9 +16,37 @@ const generatePlayerID = () => {
 const App: React.FC = () => {
   const [playerID, setPlayerID] = useState(generatePlayerID());
   const [players, setPlayers] = useState<string[]>([]);
-  // const [displayName, setDisplayName] = useState('');
   const [gameID, setGameID] = useState('');
   const [inGame, setInGame] = useState(false);
+  const [showJoinGameInput, setShowJoinGameInput] = useState(false);
+  const [inputGameID, setInputGameID] = useState('');
+
+  useEffect(() => {
+    const ws = new WebSocket(WS_URL);
+
+    ws.addEventListener('open', () => {
+      ws.send(JSON.stringify({ type: 'register', playerID }));
+    });
+
+    ws.addEventListener('message', (message) => {
+      try {
+        console.log('Received message:', message.data);  // Debugging line
+        const data = JSON.parse(message.data);
+        
+        if (data.type === 'playerJoined') {
+          setPlayers(prevPlayers => [...prevPlayers, data.joinedPlayer]);
+        }
+      } catch (e) {
+        console.error('Error parsing message:', e);
+      }
+    });
+    
+
+    return () => {
+      ws.close();
+    };
+  }, [playerID]);
+
 
   const startNewGame = async () => {
     try {
@@ -66,13 +95,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleJoinGameClick = () => {
+    setShowJoinGameInput(true);
+  };
+
+  const goBack = () => {
+    setShowJoinGameInput(false);
+  };
+
+  const handleJoinGameSubmit = () => {
+    joinExistingGame(inputGameID);
+  };
+
   return (
     <div className="App" style={{backgroundColor: 'green'}}>
       <header className="App-header">
         <h1>Welcome to Blackjack!</h1>
         <p>Your Player ID: {playerID}</p>
         <div>
-          <label>
+          {/* <label>
             Or log in as:
             <input 
               type="text" 
@@ -80,7 +121,7 @@ const App: React.FC = () => {
               onChange={(e) => setPlayerID(e.target.value)}
               placeholder="another user"
             />
-          </label>
+          </label> */}
         </div>
         {/* <div>
           <label>
@@ -108,10 +149,24 @@ const App: React.FC = () => {
             </div>
             <button disabled={players.length < 2}>Start Game</button>
           </>
+        ) : showJoinGameInput ? (
+          <div>
+            <label>
+              Enter Game ID to join:
+              <input
+                type="text"
+                value={inputGameID}
+                onChange={(e) => setInputGameID(e.target.value)}
+                placeholder="Game ID"
+              />
+            </label>
+            <button onClick={handleJoinGameSubmit}>Join Game</button>
+            <button onClick={goBack}>Back</button>
+          </div>
         ) : (
           <div className="buttons">
             <button onClick={startNewGame}>Start a New Game</button>
-            <button onClick={() => joinExistingGame(gameID)}>Join an Existing Game</button>
+            <button onClick={handleJoinGameClick}>Join an Existing Game</button>
           </div>
         )}
       </header>
