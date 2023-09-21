@@ -155,16 +155,19 @@ const App: React.FC = () => {
 
     switch (message) {
       case "Continue": {
-        
+        // If I had more time
+        break;
       }
       case "Loser": {
-        
+        // If I had more time
+        break;
       }
       case "Winner": {
-
+        // If I had more time
+        break;
       }
       default: {
-
+        break;
       }
     }
   }

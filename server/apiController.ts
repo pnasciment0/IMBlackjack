@@ -108,8 +108,6 @@ export const createGame = (db: sqlite3.Database, req: Request, res: Response): P
   return new Promise(async (resolve, reject) => {
     const initialState = req.body.state || '';
     const hostPlayer = req.body.hostPlayerID || null; 
-  
-    console.log(hostPlayer);
 
     const sql = 'INSERT INTO games (state, hostPlayer, currentPlayer) VALUES (?, ?, ?)';
     
@@ -249,8 +247,6 @@ export const hitAction = (db: sqlite3.Database, req: Request, res: Response): Pr
     const existingCardsScore = existingCardValues.reduce((acc: any, val: any) => acc + cardToNum(val), 0);
 
     const newScore = existingCardsScore + newCardValue;
-
-    console.log(`${existingCardsScore}} + ${newCardValue} = ${newScore}`);
 
     const addPlayerQuery = 'UPDATE players SET score = ? WHERE id = ?';
 

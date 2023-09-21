@@ -81,8 +81,6 @@ initializeDb()
     // player chooses 'hit'
     app.post('/api/games/:gameId/hit', (req, res) => {
       hitAction(db, req, res).then(async (response) => {
-        console.log("Hit action response is: ");
-        console.log(response);
         if (response.message == "Loser") {
           for (const playerId in activeConnections) {
             const ws = activeConnections[playerId];
@@ -90,14 +88,12 @@ initializeDb()
           }
         }
         if (response.message == "Winner") {
-
+        // If I had more time
+        // if the player wins, end the game, notifying all players, and notifying the winner that they have won
         }
         if (response.message == "Continue") {
-
+        
         }
-        // if the player loses, choose another player and notify them its their turn
-        // if the player wins, end the game, notifying all players, and notifying the winner that they have won
-        // if neither, the game continues 
       })
     })
 
