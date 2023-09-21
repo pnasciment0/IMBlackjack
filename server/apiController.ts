@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, response } from 'express';
 import sqlite3 from 'sqlite3';
 import axios from 'axios';
 
@@ -18,6 +18,18 @@ const initializeDeck = async () => {
   const response = await axios.get('https://deckofcardsapi.com/api/deck/new/shuffle/');
   return response.data.deck_id;  // Returns new shuffled deck ID
 };
+
+const cardToNum = (card: string) => {
+  const faceCards = ['KING', 'QUEEN', 'JACK'];
+
+  if (faceCards.includes(card)) {
+    return 10;
+  } else if (card === 'ACE') {
+    return 1; // for the sake of simplicity
+  } else {
+    return +card;
+  }
+}
 
 // =========== Player CRUD =============
 
@@ -99,10 +111,10 @@ export const createGame = (db: sqlite3.Database, req: Request, res: Response): P
   
     console.log(hostPlayer);
 
-    const sql = 'INSERT INTO games (state, hostPlayer) VALUES (?, ?)';
+    const sql = 'INSERT INTO games (state, hostPlayer, currentPlayer) VALUES (?, ?, ?)';
     
     db.serialize(() => {
-      db.run(sql, [initialState, hostPlayer], function(err) {
+      db.run(sql, [initialState, hostPlayer, hostPlayer], function(err) {
         if (err) {
           reject(err);
           return res.status(400).json({ error: err.message });
@@ -213,13 +225,7 @@ export const startGame = (db: sqlite3.Database, req: Request, res: Response):  P
        }
        
        userIds = rows.map((row: PlayerGameRow) => String(row.id));
-      //  // Send WebSocket message to active users about their hands
-      //  for (const userId of userIds) {
-      //    const ws = activeConnections.get(userId);
-      //    if (ws) {
-      //      ws.send(JSON.stringify({ game_id: gameId, hand: cards }));
-      //    }
-      //  }
+
        resolve({deckId, userIds});
        res.status(201).json({deckId, userIds });
      });
@@ -228,3 +234,65 @@ export const startGame = (db: sqlite3.Database, req: Request, res: Response):  P
 }
 
 // =========== Actions CRUD =============
+
+export const hitAction = (db: sqlite3.Database, req: Request, res: Response): Promise<any> => {
+  return new Promise(async (resolve, reject) => {
+    const { gameId } = req.params;
+    const { cards, playerID, deckId} = req.body;
+
+    const cardsRequest = await axios.get(`https://deckofcardsapi.com/api/deck/${deckId}/draw/?count=1`);
+    const newCard = cardsRequest.data.cards[0];
+    const newCardValue = cardToNum(newCard.value);
+
+    // Deserialize the card values and sum them up
+    const existingCardValues = JSON.parse(cards);
+    const existingCardsScore = existingCardValues.reduce((acc: any, val: any) => acc + cardToNum(val), 0);
+
+    const newScore = existingCardsScore + newCardValue;
+
+    console.log(`${existingCardsScore}} + ${newCardValue} = ${newScore}`);
+
+    const addPlayerQuery = 'UPDATE players SET score = ? WHERE id = ?';
+
+    db.run(addPlayerQuery, [newScore, playerID], function(err) {
+      if (err) {
+        reject(err);
+        return res.status(400).json({ error: err.message });
+      }
+
+      if (newScore > 21) {
+        const randomPlayerQuery = `SELECT id FROM players WHERE game_id = ? AND id != ? ORDER BY RANDOM() LIMIT 1`;
+        db.get(randomPlayerQuery, [gameId, playerID], function(err, row: PlayerGameRow) {
+          if (err) {
+            return res.status(400).json({ error: err.message });
+          }
+          
+          if (row) {
+            const nextPlayerId = row.id;
+            // resolve({message: "Loser", nextTurn: nextPlayerId});
+            // res.status(201).json({ message: "Loser", nextTurn: nextPlayerId });
+
+            const updateGameQuery = 'UPDATE games SET currentPlayer = ? WHERE id = ?';
+
+            db.run(updateGameQuery, [nextPlayerId, gameId], function(err) {
+              if (err) {
+                return res.status(400).json({ error: err.message });
+              }
+
+              resolve({message: "Loser", nextTurn: nextPlayerId});
+              res.status(201).json({ message: "Loser", nextTurn: nextPlayerId, newScore, newCard });
+            })
+
+          } else {
+            return res.status(400).json({ message: "No eligible player for next turn" });
+          }
+        });
+      } else if (newScore < 21) {
+        resolve({ message: "Continue", newScore, newCard})
+        res.status(201).json({ message: "Continue", newScore, newCard });
+      } else {
+        res.status(201).json({ message: "Winner", newScore, newCard});
+      }
+    });
+  });
+}

@@ -9,7 +9,8 @@ import {
   listPlayers,
   listAllGames,
   addPlayerToGame,
-  startGame
+  startGame,
+  hitAction
 } from './apiController';
 import http from 'http';
 import WebSocket from 'ws';
@@ -61,6 +62,7 @@ initializeDb()
     app.get('/api/games/:gameId/start', (req, res) => {
       startGame(db, req, res).then(async (response) => {
         const playerIds = response.userIds;
+        console.log("game start");
         console.log(response);
         for (const playerId of playerIds) {
           if (activeConnections[playerId]) {
@@ -70,11 +72,39 @@ initializeDb()
             const cardsRequest = await axios.get(`https://deckofcardsapi.com/api/deck/${deckId}/draw/?count=2`);
             const cards = cardsRequest.data.cards;
 
-            ws.send(JSON.stringify({type: 'gameStarted', playerId, cards}))
+            ws.send(JSON.stringify({type: 'gameStarted', playerId, cards, deckId}))
           }
         }
       })
     });
+
+    // player chooses 'hit'
+    app.post('/api/games/:gameId/hit', (req, res) => {
+      hitAction(db, req, res).then(async (response) => {
+        console.log("Hit action response is: ");
+        console.log(response);
+        if (response.message == "Loser") {
+          for (const playerId in activeConnections) {
+            const ws = activeConnections[playerId];
+            ws.send(JSON.stringify({type: 'playerTurn', playerId: response.nextTurn}))
+          }
+        }
+        if (response.message == "Winner") {
+
+        }
+        if (response.message == "Continue") {
+
+        }
+        // if the player loses, choose another player and notify them its their turn
+        // if the player wins, end the game, notifying all players, and notifying the winner that they have won
+        // if neither, the game continues 
+      })
+    })
+
+    // player chooses 'hit'
+    app.post('/api/games/:gameId/stand', (req, res) => {
+
+    })
 
     const wss = new WebSocket.Server({ server });
 

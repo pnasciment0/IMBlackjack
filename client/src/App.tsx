@@ -20,10 +20,12 @@ const App: React.FC = () => {
   const [inGame, setInGame] = useState(false);
   const [showJoinGameInput, setShowJoinGameInput] = useState(false);
   const [inputGameID, setInputGameID] = useState('');
-  const [playerCards, setPlayerCards] = useState<string[]>([]);
+  const [playerCards, setPlayerCards] = useState<any[]>([]);
   const [hostPlayer, setHostPlayer] = useState('');
   const [isMyTurn, setIsMyTurn] = useState(false);
   const [hasGameBegun, setHasGameBegun] = useState(false);
+  const [deckId, setDeckId] = useState('');
+  const [score, setScore] = useState(0);
 
 
   useEffect(() => {
@@ -41,10 +43,16 @@ const App: React.FC = () => {
         if (data.type === 'playerJoined') {
           setPlayers(prevPlayers => [...prevPlayers, data.joinedPlayer]);
         } else if (data.type === 'gameStarted') {
-          setPlayerCards(data.cards.map((card: any) => card.image));
+          setPlayerCards(data.cards.map((card: any) => {
+            return {
+              image: card.image,
+              value: card.value
+            }
+          }));
           setHasGameBegun(true);
+          setDeckId(data.deckId);
         } else if (data.type === 'playerTurn') {
-          if (data.playerID === playerID) {
+          if (+data.playerId === +playerID) {
             setIsMyTurn(true);
           } else {
             setIsMyTurn(false);
@@ -133,6 +141,34 @@ const App: React.FC = () => {
     }
   }
 
+  const hitMe = async () => {
+    const response = await axios.post(`${BASE_API_URL}/api/games/${gameID}/hit`, {
+        playerID,
+        cards: JSON.stringify(playerCards.map((card) => card.value)),
+        deckId
+    })
+
+    const { message, newCard, newScore } = response.data;
+
+    setScore(newScore);
+    setPlayerCards([...playerCards, newCard]);
+
+    switch (message) {
+      case "Continue": {
+        
+      }
+      case "Loser": {
+        
+      }
+      case "Winner": {
+
+      }
+      default: {
+
+      }
+    }
+  }
+
   const handleJoinGameClick = () => {
     setShowJoinGameInput(true);
   };
@@ -175,7 +211,7 @@ const App: React.FC = () => {
                 </>
               ) : (
                 playerCards.map((cardUrl, index) => (
-                  <img key={index} src={cardUrl} alt="Card" />
+                  <img key={index} src={cardUrl.image} alt="Card" />
                 ))
               )}
             </div>
@@ -215,7 +251,8 @@ const App: React.FC = () => {
         )}
         {hasGameBegun && (
           <div>
-            <button disabled={!isMyTurn} onClick={() => {/* Handle Hit logic */}}>Hit</button>
+            <p>Your Score: {score}</p>
+            <button disabled={!isMyTurn} onClick={hitMe}>Hit</button>
             <button disabled={!isMyTurn} onClick={() => {/* Handle Stand logic */}}>Stand</button>
           </div>
         )}
