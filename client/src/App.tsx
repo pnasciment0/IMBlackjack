@@ -256,7 +256,7 @@ const App: React.FC = () => {
           <div>
             <p>Your Score: {score}</p>
             <button disabled={!isMyTurn} onClick={hitMe}>Hit</button>
-            <button disabled={!isMyTurn} onClick={() => {/* Handle Stand logic */}}>Stand</button>
+            <button disabled onClick={() => {/* If I had more time: Handle Stand logic */}}>Stand</button>
           </div>
         )}
       </header>
